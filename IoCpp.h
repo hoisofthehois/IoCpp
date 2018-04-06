@@ -62,6 +62,8 @@ namespace IoCpp
 	struct OwnerMap : public Map<TI, TC>
 	{
 
+	protected:
+
 		template <
 			typename TReq,
 			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, std::shared_ptr<TI>>
@@ -76,6 +78,8 @@ namespace IoCpp
 	template <typename TI, typename TC>
 	struct SharedMap : public Map<TI, TC>
 	{
+
+	protected:
 
 		template <
 			typename TReq,
@@ -95,6 +99,8 @@ namespace IoCpp
 	template <typename TI>
 	struct FactoryMap : public Map<TI, TI>
 	{
+
+	protected:
 
 		factory_func<TI> m_fnMakeShared;
 
@@ -117,69 +123,24 @@ namespace IoCpp
 	private:
 
 		template < typename TMap, typename TObj >
-		struct match_helper
-		{
-			TMap& typeMap;
-			explicit match_helper(TMap& map) : typeMap(map) {}
-
-			void inject_concrete(TObj* pObj)
-			{
-				pObj->inject<typename TMap::interface_type>(typeMap.make_concrete<typename TMap::interface_type>());
-			}
-
-			void set_concrete(std::shared_ptr<TObj>& pObj)
-			{
-				pObj = typeMap.make_concrete<typename TMap::interface_type>();
-			}
-
-			void set_factory(factory_func<TObj> fnFactory)
-			{
-				typeMap.m_fnMakeShared = fnFactory;
-			}
-		};
-
-		template < typename TMap, typename TObj >
-		struct no_match_helper
-		{
-			explicit no_match_helper(TMap& map) {}
-
-			void inject_concrete(TObj* pObj) {}
-			void set_concrete(std::shared_ptr<TObj>& pObj) {}
-			void set_factory(factory_func<TObj> fnFactory) {}
-
-		};
-
-		template < typename TMap, typename TObj >
 		void inject_concrete(TObj* pObj)
 		{
-			using helper = std::conditional_t<
-				std::is_base_of_v<Depends<typename TMap::interface_type>, TObj>,
-				match_helper<TMap, TObj>,
-				no_match_helper<TMap, TObj>
-			>;
-			helper(*this).inject_concrete(pObj);
+			if constexpr (std::is_base_of_v<Depends<typename TMap::interface_type>, TObj>)
+				pObj->inject<typename TMap::interface_type>(TMap::make_concrete<typename TMap::interface_type>());
 		}
 
 		template < typename TMap, typename TA >
 		void set_concrete(std::shared_ptr<TA>& pObj)
 		{
-			using helper = std::conditional_t<
-				std::is_base_of_v<typename TMap::interface_type, TA>,
-				match_helper<TMap, TA>,
-				no_match_helper<TMap, TA>
-			>;
-			helper(*this).set_concrete(pObj);
+			if constexpr (std::is_base_of_v<typename TMap::interface_type, TA>)
+				pObj = TMap::make_concrete<typename TMap::interface_type>();
 		}
 
 		template < typename TMap, typename TA >
 		void set_factory(factory_func<TA> fnFactory)
 		{
-			using helper = std::conditional_t<
-				std::is_same_v<TMap, FactoryMap<TA>>,
-				match_helper<TMap, TA>,
-				no_match_helper<TMap, TA>
-			>;
-			helper(*this).set_factory(fnFactory);
+			if constexpr (std::is_same_v<TMap, FactoryMap<TA>>)
+				TMap::m_fnMakeShared = fnFactory;
 		}
 
 	public:
