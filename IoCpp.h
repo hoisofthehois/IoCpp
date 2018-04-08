@@ -8,22 +8,129 @@
 namespace IoCpp
 {
 
+	template <typename TI>
+	class DependencyPtr final
+	{
+	public :
+
+		typedef std::function<TI*()> copy_func;
+
+	private:
+
+		TI* m_pRaw;
+		std::shared_ptr<TI> m_pShared;
+		copy_func m_fnCopy;
+
+		TI* getPtr() { return m_pRaw ? m_pRaw : m_pShared.get(); } 
+		const TI* getPtr() const { return m_pRaw ? m_pRaw : m_pShared.get(); }
+
+		DependencyPtr(TI* pObj, std::function<TI*()>&& fnCopy) :
+			m_pRaw(pObj), m_pShared(), m_fnCopy(std::move(fnCopy)) {}
+		DependencyPtr(std::shared_ptr<TI>&& pObj) :
+			m_pRaw(), m_pShared(std::move(pObj)), m_fnCopy() {}
+
+		void reset()
+		{
+			if (m_fnCopy && m_pRaw)
+				delete m_pRaw;
+			if (m_pShared)
+				m_pShared.reset();
+		}
+
+	public:
+
+		DependencyPtr() = default;
+
+		static DependencyPtr<TI> fromFunction(copy_func&& fnCopy)
+		{
+			auto pObj = fnCopy();
+			return DependencyPtr<TI>(pObj, std::move(fnCopy));
+		}
+
+		template<
+			typename TC,
+			typename TPtr = std::enable_if_t<std::is_base_of_v<TI, TC>, DependencyPtr<TI>>
+		>
+		static TPtr fromInstance(TC* pObj)
+		{
+			return DependencyPtr<TI>(pObj, nullptr);
+		}
+
+		static DependencyPtr<TI> fromSharedPtr(std::shared_ptr<TI>&& pPtr)
+		{
+			return DependencyPtr<TI>(std::move(pPtr));
+		}
+
+
+		~DependencyPtr()
+		{
+			reset();
+		}
+
+		DependencyPtr(DependencyPtr&& ptr) :
+			m_pRaw(ptr.m_pRaw),
+			m_pShared(std::move(ptr.m_pShared)),
+			m_fnCopy(std::move(ptr.m_fnCopy))
+		{
+			ptr.m_pRaw = nullptr;
+		}
+
+		DependencyPtr& operator=(DependencyPtr&& ptr)
+		{
+			if (&ptr != this)
+			{
+				reset();
+				m_pRaw = ptr.m_pRaw;
+				m_pShared = std::move(ptr.m_pShared);
+				m_fnCopy = std::move(ptr.m_fnCopy);
+				ptr.m_pRaw = nullptr;
+			}
+			return *this;
+		}
+
+		DependencyPtr(const DependencyPtr& ptr) :
+			m_pRaw(ptr.m_fnCopy ? ptr.m_fnCopy() : ptr.m_pRaw),
+			m_pShared(ptr.m_pShared),
+			m_fnCopy(ptr.m_fnCopy) {}
+
+		DependencyPtr& operator=(const DependencyPtr& ptr)
+		{
+			if (&ptr != this)
+			{
+				reset();
+				m_pRaw = ptr.m_fnCopy ? ptr.m_fnCopy() : ptr.m_pRaw;
+				m_pShared = ptr.m_pShared;
+				m_fnCopy = ptr.m_fnCopy;
+			}
+			return *this;
+		}
+
+		TI* operator->() { return getPtr(); }
+		const TI* operator->() const { return getPtr(); }
+
+		operator TI*() { return getPtr(); }
+		operator const TI*() const { return getPtr(); }
+
+	};
+
+
+
 	template <typename TDep>
 	class Depends
 	{
 
 	private:
 
-		std::shared_ptr<TDep> m_pObj;
+		DependencyPtr<TDep> m_pObj;
 
 	protected:
 
 		Depends() = default;
 
-		TDep* use() { return m_pObj.get(); }
-		const TDep* use() const { return m_pObj.get(); }
+		TDep* use() { return m_pObj; }
+		const TDep* use() const { return m_pObj; }
 
-		void inject(std::shared_ptr<TDep>&& pDep) { m_pObj = std::move(pDep); }
+		void inject(DependencyPtr<TDep>&& pDep) { m_pObj = std::move(pDep); }
 
 	};
 
@@ -40,7 +147,7 @@ namespace IoCpp
 	public:
 
 		template <typename TD>
-		void inject(std::shared_ptr<TD>&& pDep) { Depends<TD>::inject(std::move(pDep)); }
+		void inject(DependencyPtr<TD>&& pDep) { Depends<TD>::inject(std::move(pDep)); }
 
 		template <typename TD>
 		TD* use() { return Depends<TD>::use(); }
@@ -62,15 +169,13 @@ namespace IoCpp
 	struct OwnerMap : public Map<TI, TC>
 	{
 
-	protected:
-
 		template <
 			typename TReq,
-			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, std::shared_ptr<TI>>
+			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, DependencyPtr<TI>>
 		>
 		TPtr make_concrete()
 		{ 
-			return std::shared_ptr<TI>(new TC{});
+			return DependencyPtr<TI>::fromFunction([]() -> TI* {return new TC{}; });
 		}
 
 	};
@@ -79,16 +184,14 @@ namespace IoCpp
 	struct SharedMap : public Map<TI, TC>
 	{
 
-	protected:
-
 		template <
 			typename TReq,
-			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, std::shared_ptr<TI>>
+			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, DependencyPtr<TI>>
 		>
 		TPtr make_concrete()
 		{
 			static TC tcObj;
-			return std::shared_ptr<TI>(&tcObj, [](TI* pObj) {});
+			return DependencyPtr<TI>::fromInstance(&tcObj);
 		}
 
 	};
@@ -100,24 +203,23 @@ namespace IoCpp
 	struct FactoryMap : public Map<TI, TI>
 	{
 
-	protected:
-
 		factory_func<TI> m_fnMakeShared;
 
 		template <
 			typename TReq,
-			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, std::shared_ptr<TI>>
+			typename TPtr = std::enable_if_t<std::is_same_v<TReq, TI>, DependencyPtr<TI>>
 		>
 		TPtr make_concrete()
 		{
-			return m_fnMakeShared ? m_fnMakeShared() : TPtr{};
+			auto pTI = m_fnMakeShared ? m_fnMakeShared() : std::shared_ptr<TI>{};
+			return DependencyPtr<TI>::fromSharedPtr(std::move(pTI));
 		}
 
 	};
 
 
 	template <typename... TM>
-	class Container : public TM...
+	class Container : private TM...
 	{
 
 	private:
@@ -130,7 +232,7 @@ namespace IoCpp
 		}
 
 		template < typename TMap, typename TA >
-		void set_concrete(std::shared_ptr<TA>& pObj)
+		void set_concrete(DependencyPtr<TA>& pObj)
 		{
 			if constexpr (std::is_base_of_v<typename TMap::interface_type, TA>)
 				pObj = TMap::make_concrete<typename TMap::interface_type>();
@@ -159,11 +261,11 @@ namespace IoCpp
 
 		template <
 			typename TA,
-			typename TRes = std::enable_if_t<std::is_abstract_v<TA>, std::shared_ptr<TA>>
+			typename TRes = std::enable_if_t<std::is_abstract_v<TA>, DependencyPtr<TA>>
 		>
 		TRes make()
 		{
-			std::shared_ptr<TA> pObj;
+			DependencyPtr<TA> pObj;
 			auto fold = {0, (set_concrete<TM, TA>(pObj),0)...};
 			return pObj;
 		}
