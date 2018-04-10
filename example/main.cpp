@@ -9,10 +9,12 @@
 int main(int argc, char** argv)
 {
 
+
 	IoCpp::Container<
 		IoCpp::OwnerMap<IDataProvider, DataProvider>,	// Map an instance
 		IoCpp::SharedMap<IWorker, SumWorker>,		// Map a singleton
 		IoCpp::SharedMap<ILogger, ConsoleLogger>,
+		//IoCpp::FactoryMap<ILogger>,
 		IoCpp::SharedMap<BaseMethod, ModifiedMethod>,
 		IoCpp::FactoryMap<ICallback>		// Map a type that is later created through a factory function
 	> container;

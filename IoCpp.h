@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <memory>
 
+#include "TmpHelpers.h"
+
 namespace IoCpp
 {
 
@@ -158,15 +160,14 @@ namespace IoCpp
 	};
 
 
-	template <typename TI, typename TC>
+	template <typename TI>
 	struct Map
 	{
 		typedef TI interface_type;
-		typedef TC concrete_type;
 	};
 
 	template <typename TI, typename TC>
-	struct OwnerMap : public Map<TI, TC>
+	struct OwnerMap : public Map<TI>
 	{
 
 		template <
@@ -181,7 +182,7 @@ namespace IoCpp
 	};
 
 	template <typename TI, typename TC>
-	struct SharedMap : public Map<TI, TC>
+	struct SharedMap : public Map<TI>
 	{
 
 		template <
@@ -200,7 +201,7 @@ namespace IoCpp
 	using factory_func = std::function<std::shared_ptr<TI>()>;
 
 	template <typename TI>
-	struct FactoryMap : public Map<TI, TI>
+	struct FactoryMap : public Map<TI>
 	{
 
 		factory_func<TI> m_fnMakeShared;
@@ -221,6 +222,8 @@ namespace IoCpp
 	template <typename... TM>
 	class Container : private TM...
 	{
+
+		static_assert(tmp::check_no_duplicate<typename TM::interface_type...>(), "Duplicate type mapping detected!");
 
 	private:
 

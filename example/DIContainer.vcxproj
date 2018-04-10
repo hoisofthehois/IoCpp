@@ -130,6 +130,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\IoCpp.h" />
+    <ClInclude Include="..\TmpHelpers.h" />
     <ClInclude Include="Algorithm.h" />
     <ClInclude Include="Example.h" />
     <ClInclude Include="IExample.h" />
