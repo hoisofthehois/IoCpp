@@ -15,7 +15,7 @@ namespace IoCpp
 	{
 	public :
 
-		typedef std::function<TI*()> copy_func;
+		using copy_func = std::function<TI*()>;
 
 	private:
 
@@ -163,7 +163,7 @@ namespace IoCpp
 	template <typename TI>
 	struct Map
 	{
-		typedef TI interface_type;
+		using interface_type = TI;
 	};
 
 	template <typename TI, typename TC>
