@@ -11,11 +11,26 @@ namespace IoCpp
 {
 
 	template <typename TI>
-	class DependencyPtr final
+	class DependencyPtrBase
+	{
+	private:
+		virtual TI* getPtr() = 0;
+		virtual const TI* getPtr() const = 0;
+
+	public:
+		TI * operator->() { return getPtr(); }
+		const TI* operator->() const { return getPtr(); }
+
+		operator TI*() { return getPtr(); }
+		operator const TI*() const { return getPtr(); }
+	};
+
+	template <typename TI>
+	class DependencyPtr final : public DependencyPtrBase<TI>
 	{
 	public :
 
-		typedef std::function<TI*()> copy_func;
+		using copy_func = std::function<TI*()>;
 
 	private:
 
@@ -23,8 +38,8 @@ namespace IoCpp
 		std::shared_ptr<TI> m_pShared;
 		copy_func m_fnCopy;
 
-		TI* getPtr() { return m_pRaw ? m_pRaw : m_pShared.get(); } 
-		const TI* getPtr() const { return m_pRaw ? m_pRaw : m_pShared.get(); }
+		TI* getPtr() override { return m_pRaw ? m_pRaw : m_pShared.get(); } 
+		const TI* getPtr() const override { return m_pRaw ? m_pRaw : m_pShared.get(); }
 
 		DependencyPtr(TI* pObj, std::function<TI*()>&& fnCopy) :
 			m_pRaw(pObj), m_pShared(), m_fnCopy(std::move(fnCopy)) {}
@@ -62,7 +77,6 @@ namespace IoCpp
 		{
 			return DependencyPtr<TI>(std::move(pPtr));
 		}
-
 
 		~DependencyPtr()
 		{
@@ -106,13 +120,6 @@ namespace IoCpp
 			}
 			return *this;
 		}
-
-		TI* operator->() { return getPtr(); }
-		const TI* operator->() const { return getPtr(); }
-
-		operator TI*() { return getPtr(); }
-		operator const TI*() const { return getPtr(); }
-
 	};
 
 
@@ -163,7 +170,7 @@ namespace IoCpp
 	template <typename TI>
 	struct Map
 	{
-		typedef TI interface_type;
+		using interface_type = TI;
 	};
 
 	template <typename TI, typename TC>
@@ -258,7 +265,7 @@ namespace IoCpp
 		TRes make(TArg&&... args)
 		{
 			TC tObj{std::forward<TArg>(args)...};
-			auto fold = {0, (inject_concrete<TM>(&tObj), 0)...};
+			(void)std::initializer_list<int>{((void)inject_concrete<TM>(&tObj), 0)...};
 			return tObj;
 		}
 
@@ -269,14 +276,14 @@ namespace IoCpp
 		TRes make()
 		{
 			DependencyPtr<TA> pObj;
-			auto fold = {0, (set_concrete<TM, TA>(pObj),0)...};
+			(void)std::initializer_list<int>{((void)set_concrete<TM, TA>(pObj),0)...};
 			return pObj;
 		}
 
 		template< typename TI >
 		void setFactory(factory_func<TI> fnMakeShared)
 		{
-			auto fold = {0, (set_factory<TM, TI>(fnMakeShared),0)...};
+			(void)std::initializer_list<int>{((void)set_factory<TM, TI>(fnMakeShared),0)...};
 		}
 
 	};
