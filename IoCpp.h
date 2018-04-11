@@ -11,7 +11,22 @@ namespace IoCpp
 {
 
 	template <typename TI>
-	class DependencyPtr final
+	class DependencyPtrBase
+	{
+	private:
+		virtual TI* getPtr() = 0;
+		virtual const TI* getPtr() const = 0;
+
+	public:
+		TI * operator->() { return getPtr(); }
+		const TI* operator->() const { return getPtr(); }
+
+		operator TI*() { return getPtr(); }
+		operator const TI*() const { return getPtr(); }
+	};
+
+	template <typename TI>
+	class DependencyPtr final : public DependencyPtrBase<TI>
 	{
 	public :
 
@@ -23,8 +38,8 @@ namespace IoCpp
 		std::shared_ptr<TI> m_pShared;
 		copy_func m_fnCopy;
 
-		TI* getPtr() { return m_pRaw ? m_pRaw : m_pShared.get(); } 
-		const TI* getPtr() const { return m_pRaw ? m_pRaw : m_pShared.get(); }
+		TI* getPtr() override { return m_pRaw ? m_pRaw : m_pShared.get(); } 
+		const TI* getPtr() const override { return m_pRaw ? m_pRaw : m_pShared.get(); }
 
 		DependencyPtr(TI* pObj, std::function<TI*()>&& fnCopy) :
 			m_pRaw(pObj), m_pShared(), m_fnCopy(std::move(fnCopy)) {}
@@ -62,7 +77,6 @@ namespace IoCpp
 		{
 			return DependencyPtr<TI>(std::move(pPtr));
 		}
-
 
 		~DependencyPtr()
 		{
@@ -106,13 +120,6 @@ namespace IoCpp
 			}
 			return *this;
 		}
-
-		TI* operator->() { return getPtr(); }
-		const TI* operator->() const { return getPtr(); }
-
-		operator TI*() { return getPtr(); }
-		operator const TI*() const { return getPtr(); }
-
 	};
 
 
