@@ -15,7 +15,7 @@ namespace IoCpp
 	{
 	public :
 
-		typedef std::function<TI*()> copy_func;
+		using copy_func = std::function<TI*()>;
 
 	private:
 
@@ -163,7 +163,7 @@ namespace IoCpp
 	template <typename TI>
 	struct Map
 	{
-		typedef TI interface_type;
+		using interface_type = TI;
 	};
 
 	template <typename TI, typename TC>
@@ -258,7 +258,7 @@ namespace IoCpp
 		TRes make(TArg&&... args)
 		{
 			TC tObj{std::forward<TArg>(args)...};
-			auto fold = {0, (inject_concrete<TM>(&tObj), 0)...};
+			(void)std::initializer_list<int>{((void)inject_concrete<TM>(&tObj), 0)...};
 			return tObj;
 		}
 
@@ -269,14 +269,14 @@ namespace IoCpp
 		TRes make()
 		{
 			DependencyPtr<TA> pObj;
-			auto fold = {0, (set_concrete<TM, TA>(pObj),0)...};
+			(void)std::initializer_list<int>{((void)set_concrete<TM, TA>(pObj),0)...};
 			return pObj;
 		}
 
 		template< typename TI >
 		void setFactory(factory_func<TI> fnMakeShared)
 		{
-			auto fold = {0, (set_factory<TM, TI>(fnMakeShared),0)...};
+			(void)std::initializer_list<int>{((void)set_factory<TM, TI>(fnMakeShared),0)...};
 		}
 
 	};
