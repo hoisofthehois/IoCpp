@@ -9,7 +9,6 @@
 int main(int argc, char** argv)
 {
 
-
 	IoCpp::Container<
 		IoCpp::OwnerMap<IDataProvider, DataProvider>,	// Map an instance
 		IoCpp::SharedMap<IWorker, SumWorker>,		// Map a singleton
