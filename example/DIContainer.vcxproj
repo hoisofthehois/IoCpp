@@ -129,6 +129,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\DependencyPtr.h" />
     <ClInclude Include="..\IoCpp.h" />
     <ClInclude Include="..\TmpHelpers.h" />
     <ClInclude Include="Algorithm.h" />

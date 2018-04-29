@@ -5,117 +5,11 @@
 #include <type_traits>
 #include <memory>
 
+#include "DependencyPtr.h"
 #include "TmpHelpers.h"
 
 namespace IoCpp
 {
-
-	template <typename TI>
-	class DependencyPtr final
-	{
-	public :
-
-		using copy_func = std::function<TI*()>;
-
-	private:
-
-		TI* m_pRaw;
-		std::shared_ptr<TI> m_pShared;
-		copy_func m_fnCopy;
-
-		TI* getPtr() { return m_pRaw ? m_pRaw : m_pShared.get(); } 
-		const TI* getPtr() const { return m_pRaw ? m_pRaw : m_pShared.get(); }
-
-		DependencyPtr(TI* pObj, std::function<TI*()>&& fnCopy) :
-			m_pRaw(pObj), m_pShared(), m_fnCopy(std::move(fnCopy)) {}
-		DependencyPtr(std::shared_ptr<TI>&& pObj) :
-			m_pRaw(), m_pShared(std::move(pObj)), m_fnCopy() {}
-
-		void reset()
-		{
-			if (m_fnCopy && m_pRaw)
-				delete m_pRaw;
-			if (m_pShared)
-				m_pShared.reset();
-		}
-
-	public:
-
-		DependencyPtr() = default;
-
-		static DependencyPtr<TI> fromFunction(copy_func&& fnCopy)
-		{
-			auto pObj = fnCopy();
-			return DependencyPtr<TI>(pObj, std::move(fnCopy));
-		}
-
-		template<
-			typename TC,
-			typename TPtr = std::enable_if_t<std::is_base_of_v<TI, TC>, DependencyPtr<TI>>
-		>
-		static TPtr fromInstance(TC* pObj)
-		{
-			return DependencyPtr<TI>(pObj, nullptr);
-		}
-
-		static DependencyPtr<TI> fromSharedPtr(std::shared_ptr<TI>&& pPtr)
-		{
-			return DependencyPtr<TI>(std::move(pPtr));
-		}
-
-
-		~DependencyPtr()
-		{
-			reset();
-		}
-
-		DependencyPtr(DependencyPtr&& ptr) :
-			m_pRaw(ptr.m_pRaw),
-			m_pShared(std::move(ptr.m_pShared)),
-			m_fnCopy(std::move(ptr.m_fnCopy))
-		{
-			ptr.m_pRaw = nullptr;
-		}
-
-		DependencyPtr& operator=(DependencyPtr&& ptr)
-		{
-			if (&ptr != this)
-			{
-				reset();
-				m_pRaw = ptr.m_pRaw;
-				m_pShared = std::move(ptr.m_pShared);
-				m_fnCopy = std::move(ptr.m_fnCopy);
-				ptr.m_pRaw = nullptr;
-			}
-			return *this;
-		}
-
-		DependencyPtr(const DependencyPtr& ptr) :
-			m_pRaw(ptr.m_fnCopy ? ptr.m_fnCopy() : ptr.m_pRaw),
-			m_pShared(ptr.m_pShared),
-			m_fnCopy(ptr.m_fnCopy) {}
-
-		DependencyPtr& operator=(const DependencyPtr& ptr)
-		{
-			if (&ptr != this)
-			{
-				reset();
-				m_pRaw = ptr.m_fnCopy ? ptr.m_fnCopy() : ptr.m_pRaw;
-				m_pShared = ptr.m_pShared;
-				m_fnCopy = ptr.m_fnCopy;
-			}
-			return *this;
-		}
-
-		TI* operator->() { return getPtr(); }
-		const TI* operator->() const { return getPtr(); }
-
-		operator TI*() { return getPtr(); }
-		operator const TI*() const { return getPtr(); }
-
-	};
-
-
 
 	template <typename TDep>
 	class Depends
