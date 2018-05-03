@@ -79,12 +79,13 @@ namespace IoCpp
 
 		TI* getPtr() 
 		{
-			return std::visit([](auto&& ptrImpl) { return ptrImpl.getPtr(); }, m_impl);		
+			const DependencyPtr& constMe = *this;
+			return const_cast<TI*>(constMe.getPtr());	
 		}
 
 		const TI* getPtr() const
 		{
-			return const_cast<DependencyPtr<TI>*>(this)->getPtr();
+			return std::visit([](auto&& ptrImpl) { return ptrImpl.getPtr(); }, m_impl);		
 		}
 
 		DependencyPtr(TI* pObj) : m_impl(RawPtrImpl<TI>{pObj}) {}
