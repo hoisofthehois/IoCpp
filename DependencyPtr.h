@@ -23,21 +23,20 @@ namespace IoCpp
 
 	private:
 
-		TI* m_pObj;
+		std::unique_ptr<TI> m_pObj;
 		std::function<TI*()> m_fnCopy;
 
 	public:
 
-		OwningPtrImpl(TI* m_pObj, std::function<TI*()>&& fnCopy) 
-			: m_pObj(m_pObj), m_fnCopy(std::move(fnCopy)) {}
+		OwningPtrImpl(TI* pObj, std::function<TI*()>&& fnCopy) 
+			: m_pObj(pObj), m_fnCopy(std::move(fnCopy)) {}
 		OwningPtrImpl(const OwningPtrImpl& impl) 
 			: m_pObj(impl.m_fnCopy()), m_fnCopy(impl.m_fnCopy) {}
 		OwningPtrImpl& operator=(const OwningPtrImpl& impl)
 		{
 			if (&impl != this)
 			{
-				delete m_pObj;
-				m_pObj = impl.m_fnCopy();
+				m_pObj.reset(impl.m_fnCopy());
 				m_fnCopy = impl.m_fnCopy;
 			}
 			return *this;
@@ -48,16 +47,14 @@ namespace IoCpp
 		{
 			if (&impl != this)
 			{
-				m_pObj = impl.m_pObj;
-				impl.m_pObj = nullptr;
+				m_pObj = std::move(impl.m_pObj);
 				m_fnCopy = std::move(impl.m_fnCopy);
 			}
 			return *this;
 		}
-		~OwningPtrImpl() { delete m_pObj; }
 
-		TI* getPtr() { return m_pObj; }
-		const TI* getPtr() const { return m_pObj; }
+		TI* getPtr() { return m_pObj.get(); }
+		const TI* getPtr() const { return m_pObj.get(); }
 
 	};
 
@@ -82,12 +79,13 @@ namespace IoCpp
 
 		TI* getPtr() 
 		{
-			return std::visit([](auto&& ptrImpl) { return ptrImpl.getPtr(); }, m_impl);		
+			const DependencyPtr& constMe = *this;
+			return const_cast<TI*>(constMe.getPtr());	
 		}
 
 		const TI* getPtr() const
 		{
-			return const_cast<DependencyPtr<TI>*>(this)->getPtr();
+			return std::visit([](auto&& ptrImpl) { return ptrImpl.getPtr(); }, m_impl);		
 		}
 
 		DependencyPtr(TI* pObj) : m_impl(RawPtrImpl<TI>{pObj}) {}
